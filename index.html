@@ -77,6 +77,34 @@
   #sheetClose{display:none}
   .cr .lk{color:var(--ink);text-align:right;word-break:break-all;cursor:pointer}
   .cr .lk:hover{text-decoration:underline}
+  /* dossier card: what, why, identity, ancestry, membership, timeline */
+  #card{max-height:88vh;overflow-y:auto}
+  .dsec{margin-top:12px}
+  .dlabel{font-size:9.5px;letter-spacing:.26em;color:var(--gold)}
+  .dsec p{margin-top:4px;font-size:12px;line-height:1.65;color:var(--ink)}
+  .dsec p.pend{color:var(--faint)}
+  #cardUuid{font-size:10.5px;word-break:break-all}
+  .cardNote{margin-top:12px;font-size:10.5px;line-height:1.7;color:var(--faint)}
+  .tlHead{margin-top:16px;font-size:9.5px;letter-spacing:.26em;color:var(--gold);
+          border-top:1px solid var(--line);padding-top:12px}
+  #cardTimeline{margin-top:6px}
+  .tl{display:flex;gap:9px;padding:5px 0;border-bottom:1px solid var(--line);font-size:11px;line-height:1.5}
+  .tld{color:var(--faint);flex:none;font-variant-numeric:tabular-nums}
+  .tlk{color:var(--dim);flex:none;letter-spacing:.08em;font-size:9.5px;padding-top:2px;min-width:64px}
+  .tlt{flex:1;color:var(--ink)}
+  .tlNone{padding:6px 0;font-size:11px;color:var(--faint)}
+  /* layer switcher: the layers themselves are data (assets/layers/*.json);
+     this bar only renders one button per layer document */
+  #layers{position:fixed;top:34px;right:362px;z-index:4;display:flex;gap:6px;align-items:center}
+  #layers .llab{font-size:9.5px;letter-spacing:.26em;color:var(--faint);margin-right:2px}
+  .lbtn{font-family:inherit;font-size:10.5px;letter-spacing:.22em;color:var(--dim);
+        background:var(--panel);border:1px solid var(--line);padding:7px 13px;cursor:pointer}
+  .lbtn:hover{color:var(--ink)}
+  .lbtn.on{color:var(--gold);border-color:rgba(201,162,39,.55)}
+  #layerLine{margin-top:10px;font-size:11px;line-height:1.7;color:var(--dim);max-width:330px}
+  #layerLine b{color:var(--gold);font-weight:600;letter-spacing:.18em;font-size:10px}
+  #hubLbl{position:fixed;z-index:2;pointer-events:none;font-size:9.5px;letter-spacing:.22em;
+          color:var(--gold);white-space:nowrap;text-shadow:0 1px 6px #000,0 0 2px #000;display:none}
   #cardOpen{background:none;font-family:inherit;cursor:pointer}
   #mbar{display:none}
   /* in-page pop panel: the site opens inside the globe page, never away from it */
@@ -131,23 +159,41 @@
     #card{left:0;right:0;top:auto;bottom:0;transform:none;width:100%;max-height:55%;
           overflow-y:auto;padding:16px 18px calc(14px + env(safe-area-inset-bottom))}
     #pop{inset:10px 8px}
+    #card{max-height:55%}
+    #layers{top:auto;bottom:calc(64px + env(safe-area-inset-bottom));right:auto;left:50%;
+            transform:translateX(-50%)}
+    #layerLine{display:none}
   }
 </style>
 </head>
 <body>
 <canvas id="gl"></canvas>
 <div id="labels"></div>
+<div id="hubLbl"></div>
 <div id="tip"></div>
+<div id="layers"><span class="llab">LAYER</span></div>
 
 <div id="card" hidden>
   <button id="cardClose" aria-label="Close">×</button>
   <div class="cardName"><span class="dot" id="cardDot"></span><span id="cardName"></span></div>
   <div class="cardTitle" id="cardTitle"></div>
+  <div id="cardDossier">
+    <div class="dsec"><span class="dlabel">WHAT</span><p id="cardWhat"></p></div>
+    <div class="dsec"><span class="dlabel">WHY</span><p id="cardWhy"></p></div>
+  </div>
   <div class="cardRows">
     <div class="cr"><span>URL</span><span id="cardUrl" class="lk" title="View the site inside this page"></span></div>
+    <div class="cr"><span>IDENTITY</span><b id="cardUuid"></b></div>
+    <div class="cr"><span>ANCESTOR</span><b id="cardParent"></b></div>
+    <div class="cr"><span>MEMBER OF</span><b id="cardMember"></b></div>
     <div class="cr"><span>REGISTRY GRADE</span><b id="cardGrade"></b></div>
+    <div class="cr"><span>MINT</span><b id="cardMint"></b></div>
     <div class="cr"><span>AMBIENT FLOW</span><b id="cardFlow"></b></div>
   </div>
+  <div class="cardNote">Identity is infrastructure. The address names the thing,
+  the registry grades it, and the delivery chain receipts everything that lands on it.</div>
+  <div class="tlHead">TIMELINE · FROM THE RECORD</div>
+  <div id="cardTimeline"></div>
   <button id="cardOpen" type="button">View site</button>
 </div>
 
@@ -175,6 +221,7 @@
   <div id="total">0<small> Gb/s</small></div>
   <div class="flowlabel">AMBIENT FLOW</div>
   <p class="sub" id="counts"></p>
+  <p id="layerLine"></p>
   <div id="clock"></div>
 </header>
 
@@ -184,7 +231,8 @@
 </aside>
 
 <footer>
-  <div>Drag to spin the globe. Click a site, or a row on the right, to open its card.</div>
+  <div>Drag to spin the globe. Click a site, or a row on the right, to open its dossier card.</div>
+  <div>Switch layers to see one network at a time. Each card carries the thing's identity, ancestry, and timeline from the record.</div>
   <div><span class="gold">Gold rays</span> run from the San Francisco hub to every site.</div>
   <div>Each subdomain keeps its own color. Says cities sit at their true coordinates.</div>
   <div style="color:var(--faint)">Ambient motion only. This globe carries no live traffic feed;
@@ -196,6 +244,7 @@
 Try Chromium with hardware acceleration enabled.</span></div></div>
 
 <script src="assets/nodes.js"></script>
+<script src="assets/layers.js"></script>
 <script type="module">
 const GOLD = '#C9A227';
 const DATA = window.ESTATE_DATA;
@@ -236,6 +285,64 @@ document.getElementById('counts').textContent =
   nodes.filter(n => n.host.endsWith('.somacosf.com')).length +
   ' somacosf.com subdomains, each in its own color';
 
+/* Layers are data, not code. Each layer is a small declarative document
+   (assets/layers/*.json, baked into assets/layers.js by build_data.py)
+   declaring its population rule, flow rule, entry points and
+   leaderboard scope. This engine interprets the documents; a new layer
+   is a new document. Population rule types: all, hostSuffix, hostList
+   (plus alsoHosts). Flow types: hub (gold arcs from the hub), hub+mesh
+   (hub arcs plus arcs between each member and its nearest neighbours). */
+const LAYERS = window.ESTATE_LAYERS || [];
+function layerPopulation(layer) {
+  const p = layer.population || { type: 'all' };
+  const set = new Set();
+  for (const n of nodes) {
+    let inPop = false;
+    if (p.type === 'all') inPop = true;
+    else if (p.type === 'hostSuffix') inPop = n.host.endsWith(p.suffix || '');
+    else if (p.type === 'hostList') inPop = (p.hosts || []).includes(n.host);
+    if (!inPop && (p.alsoHosts || []).includes(n.host)) inPop = true;
+    if (inPop) set.add(n);
+  }
+  return set;
+}
+const layerSets = new Map(LAYERS.map(l => [l.id, layerPopulation(l)]));
+const wantLayer = new URLSearchParams(location.search).get('layer');
+let curLayer = LAYERS.find(l => l.id === wantLayer) || LAYERS[0] || null;
+let layerSet = curLayer ? layerSets.get(curLayer.id) : new Set(nodes);
+for (const n of nodes) n._inLayer = layerSet.has(n);
+const layersEl = document.getElementById('layers');
+const layerBtns = new Map();
+for (const l of LAYERS) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'lbtn';
+  b.textContent = l.name;
+  b.addEventListener('click', () => applyLayer(l.id));
+  layersEl.appendChild(b);
+  layerBtns.set(l.id, b);
+}
+function membershipsOf(n) {
+  return LAYERS.filter(l => layerSets.get(l.id).has(n)).map(l => l.name);
+}
+function applyLayer(id) {
+  const layer = LAYERS.find(l => l.id === id);
+  if (!layer) return;
+  curLayer = layer;
+  layerSet = layerSets.get(id);
+  for (const n of nodes) {
+    n._inLayer = layerSet.has(n);
+    const r = rows.get(n);
+    if (r) r.row.style.display = n._inLayer ? '' : 'none';
+    if (n._lbl) n._lbl.style.display = 'none';
+  }
+  for (const [lid, b] of layerBtns) b.classList.toggle('on', lid === id);
+  document.getElementById('layerLine').innerHTML =
+    '<b>' + layer.name + ' LAYER</b> · ' + layerSet.size + ' sites<br>' + layer.gloss;
+  if (cardNode && !layerSet.has(cardNode)) closeCard();
+  if (estateAPI && estateAPI.applyLayer) estateAPI.applyLayer(layer, layerSet);
+}
+
 const clockEl = document.getElementById('clock');
 setInterval(() => {
   clockEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
@@ -251,10 +358,11 @@ const mbarTotalEl = document.getElementById('mbarTotal');
 setInterval(() => {
   const t = performance.now() / 1000;
   let total = 0, max = 0.001;
-  const vals = nodes.map(n => { const v = flowOf(n, t); total += v; if (v > max) max = v; return v; });
-  const order = nodes.map((n, i) => i).sort((a, b) => vals[b] - vals[a]);
-  order.forEach((ni, rank) => {
-    const n = nodes[ni], r = rows.get(n), v = vals[ni];
+  const act = nodes.filter(n => n._inLayer);
+  const vals = act.map(n => { const v = flowOf(n, t); total += v; if (v > max) max = v; return v; });
+  const order = act.map((n, i) => i).sort((a, b) => vals[b] - vals[a]);
+  order.forEach((ai, rank) => {
+    const n = act[ai], r = rows.get(n), v = vals[ai];
     r.row.style.order = rank;
     r.bar.style.width = (100 * v / max).toFixed(1) + '%';
     r.val.innerHTML = v.toFixed(1) + '<small> Gb/s</small>';
@@ -288,6 +396,54 @@ function openCard(n) {
   url.textContent = n.url;
   document.getElementById('cardGrade').innerHTML =
     gradeText(n.grade) + (n.grade ? ' <small>' + n.grade + '</small>' : '');
+  /* dossier: what it is, why it was built. No gloss on record renders
+     as pending, never as padding. */
+  const dos = n.dossier;
+  const whatEl = document.getElementById('cardWhat');
+  const whyEl = document.getElementById('cardWhy');
+  if (dos) {
+    whatEl.textContent = dos.what;
+    whatEl.classList.remove('pend');
+    whyEl.textContent = dos.why || 'Record pending.';
+    whyEl.classList.toggle('pend', !dos.why);
+  } else {
+    whatEl.textContent = 'Dossier pending.';
+    whatEl.classList.add('pend');
+    whyEl.textContent = 'Record pending.';
+    whyEl.classList.add('pend');
+  }
+  /* identity as lived behaviour: the record's own IMBUUID, its
+     ancestor in the registry, the layers it is a member of, and the
+     state its identity was minted in. Claim level only. */
+  const uuidEl = document.getElementById('cardUuid');
+  uuidEl.textContent = n.uuid ? n.uuid.slice(0, 18) + '…' : 'NOT RECORDED';
+  uuidEl.title = n.uuid || '';
+  document.getElementById('cardParent').textContent =
+    n.parentName ? n.parentName : 'this record is the root';
+  document.getElementById('cardMember').textContent =
+    membershipsOf(n).join(' · ') || 'NONE';
+  document.getElementById('cardMint').textContent =
+    n.mint ? n.mint.toUpperCase() : 'NOT RECORDED';
+  /* timeline: real records only, baked at build time from the delivery
+     chain and the GitHub births. Text, never links. */
+  const tl = document.getElementById('cardTimeline');
+  tl.innerHTML = '';
+  if (n.timeline && n.timeline.length) {
+    for (const e of n.timeline) {
+      const row = document.createElement('div');
+      row.className = 'tl';
+      const d = document.createElement('span'); d.className = 'tld'; d.textContent = e.date;
+      const k = document.createElement('span'); k.className = 'tlk'; k.textContent = e.kind;
+      const tx = document.createElement('span'); tx.className = 'tlt'; tx.textContent = e.label;
+      row.appendChild(d); row.appendChild(k); row.appendChild(tx);
+      tl.appendChild(row);
+    }
+  } else {
+    const d = document.createElement('div');
+    d.className = 'tlNone';
+    d.textContent = 'No recorded events for this address yet.';
+    tl.appendChild(d);
+  }
   const open = document.getElementById('cardOpen');
   open.style.color = n.color;
   cardEl.hidden = false;
@@ -384,6 +540,8 @@ if (!THREE) {
     document.getElementById('fallback').style.display = 'grid';
   }
 }
+/* settle the opening layer now that the scene (and estateAPI) exists */
+if (curLayer) applyLayer(curLayer.id);
 
 function init(THREE) {
   const R = 1.55;
@@ -515,10 +673,12 @@ function init(THREE) {
         cols.set([tmp.r, tmp.g, tmp.b], i * 3);
       });
       cg.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-      globe.add(new THREE.Line(cg, new THREE.LineBasicMaterial({
+      const line = new THREE.Line(cg, new THREE.LineBasicMaterial({
         vertexColors: true, transparent: true, opacity: 0.5,
-        blending: THREE.AdditiveBlending, depthWrite: false })));
-      arcs.push({ curve, speed: 0.05 + Math.random() * 0.08, off: Math.random() });
+        blending: THREE.AdditiveBlending, depthWrite: false }));
+      globe.add(line);
+      arcs.push({ curve, speed: 0.05 + Math.random() * 0.08, off: Math.random(),
+                  node: n, line, kind: 'hub' });
       pulsePos.push(0, 0, 0, 0, 0, 0);
     }
     const lbl = document.createElement('div');
@@ -528,12 +688,49 @@ function init(THREE) {
     labelLayer.appendChild(lbl);
     n._lbl = lbl;
   }
+  /* pulse buffer is preallocated for hub arcs plus a layer's mesh;
+     each frame draws only the pulses of the arcs the layer shows */
+  const MAXPULSES = 512;
   const pulseGeo = new THREE.BufferGeometry();
-  pulseGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pulsePos), 3));
+  pulseGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAXPULSES * 3), 3));
   const pulses = new THREE.Points(pulseGeo, new THREE.PointsMaterial({
     map: glowTex, color: GOLD, size: 0.11, transparent: true, depthWrite: false,
     blending: THREE.AdditiveBlending }));
   globe.add(pulses);
+
+  /* mesh arcs: built only when a layer document's flow rule asks for
+     them (hub+mesh). Each member arcs to its k nearest neighbours in
+     the layer population, per the document, never per engine whim. */
+  let meshArcs = [];
+  let meshOn = false;
+  let hubLabelText = null;
+  function buildMesh(layer, set) {
+    for (const a of meshArcs) globe.remove(a.line);
+    meshArcs = [];
+    const pop = nodes.filter(n => set.has(n) && n._v);
+    const k = (layer.flow && layer.flow.mesh && layer.flow.mesh.k) || 2;
+    const seen = new Set();
+    for (const n of pop) {
+      const near = pop.filter(m => m !== n)
+        .sort((a, b) => a._v.distanceTo(n._v) - b._v.distanceTo(n._v)).slice(0, k);
+      for (const m of near) {
+        const key = [n.board, m.board].sort().join('|');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const dist = n._v.distanceTo(m._v);
+        const mid = n._v.clone().add(m._v).multiplyScalar(0.5).normalize()
+          .multiplyScalar(R + dist * 0.30);
+        const curve = new THREE.QuadraticBezierCurve3(n._v.clone(), mid, m._v.clone());
+        const cg = new THREE.BufferGeometry().setFromPoints(curve.getPoints(48));
+        const line = new THREE.Line(cg, new THREE.LineBasicMaterial({
+          color: GOLD, transparent: true, opacity: 0.30,
+          blending: THREE.AdditiveBlending, depthWrite: false }));
+        globe.add(line);
+        meshArcs.push({ curve, speed: 0.04 + Math.random() * 0.06,
+                        off: Math.random(), line, kind: 'mesh' });
+      }
+    }
+  }
 
   /* interaction: drag to rotate with inertia, click to pick, fly to a site.
      With no input the state machine sits in auto and the globe behaves
@@ -571,6 +768,7 @@ function init(THREE) {
   function pickAt(cx, cy) {
     let best = null, bestD = 22;
     for (const n of nodes) {
+      if (!n._inLayer) continue;
       if (n._facing === undefined || n._facing < 0.05) continue;
       const d = Math.hypot(n._sx - cx, n._sy - cy);
       if (d < bestD) { bestD = d; best = n; }
@@ -627,7 +825,12 @@ function init(THREE) {
   }
   estateAPI = {
     flyTo: n => flyTo(n, false),
-    select: n => showSelection(n)
+    select: n => showSelection(n),
+    applyLayer: (layer, set) => {
+      hubLabelText = layer.hubLabel || null;
+      meshOn = !!(layer.flow && layer.flow.type === 'hub+mesh');
+      if (meshOn) buildMesh(layer, set);
+    }
   };
 
   let drag = null;
@@ -755,19 +958,49 @@ function init(THREE) {
     }
     globe.rotation.set(pitch, yaw, 0);
     const arr = pulseGeo.attributes.position.array;
-    arcs.forEach((a, i) => {
-      for (let k = 0; k < 2; k++) {
+    let pc = 0;
+    const pushPulses = (a) => {
+      for (let k = 0; k < 2 && pc < MAXPULSES; k++) {
         const u = (t * a.speed + a.off + k * 0.5) % 1;
         const p = a.curve.getPoint(u);
-        arr.set([p.x, p.y, p.z], (i * 2 + k) * 3);
+        arr.set([p.x, p.y, p.z], pc * 3);
+        pc++;
       }
-    });
+    };
+    for (const a of arcs) {
+      a.line.visible = a.node._inLayer;
+      if (a.node._inLayer) pushPulses(a);
+    }
+    for (const a of meshArcs) {
+      a.line.visible = meshOn;
+      if (meshOn) pushPulses(a);
+    }
+    pulseGeo.setDrawRange(0, pc);
     pulseGeo.attributes.position.needsUpdate = true;
     renderer.render(scene, camera);
     camera.getWorldDirection(camDir);
     const gCenter = globe.getWorldPosition(new THREE.Vector3());
+    /* the hub carries the layer document's entry label when it has one */
+    const hubLbl = document.getElementById('hubLbl');
+    if (hubLabelText) {
+      wPos.copy(hubV).applyMatrix4(globe.matrixWorld);
+      const hf = wPos.clone().sub(gCenter).normalize().dot(camDir.clone().negate());
+      proj.copy(wPos).project(camera);
+      if (hf > 0.25) {
+        hubLbl.textContent = hubLabelText;
+        hubLbl.style.display = 'block';
+        hubLbl.style.left = ((proj.x * 0.5 + 0.5) * innerWidth + 14) + 'px';
+        hubLbl.style.top = ((-proj.y * 0.5 + 0.5) * innerHeight - 6) + 'px';
+      } else {
+        hubLbl.style.display = 'none';
+      }
+    } else {
+      hubLbl.style.display = 'none';
+    }
     const vis = [];
     for (const n of nodes) {
+      n._sprite.visible = n._inLayer;
+      if (!n._inLayer) { n._lbl.style.display = 'none'; n._facing = 0; continue; }
       wPos.copy(n._v).applyMatrix4(globe.matrixWorld);
       const facing = wPos.clone().sub(gCenter).normalize().dot(camDir.clone().negate());
       n._facing = facing;

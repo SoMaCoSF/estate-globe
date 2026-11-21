@@ -20,6 +20,8 @@ Somacomarchy.
 
 ![Detail card open for itpm.somacosf.com](estate-globe-card-1600.png)
 
+![The Says layer](estate-globe-says-1600.png)
+
 ![Pop panel open on desktop](estate-globe-pop-1600.png)
 
 ![Globe on a phone, faded bottom bar](estate-globe-mobile-390.png)
@@ -61,6 +63,57 @@ becomes a browser for the estate.
   opens its card.
 * Deep link: `?open=<host>` (for example `?open=itpm.somacosf.com`)
   loads the page already turned to that site with its card open.
+  `?layer=says` opens on a layer instead of the full estate.
+
+## The dossier card
+
+The card is a dossier, not a tooltip. For the selected thing it shows:
+
+* **WHAT** it is and **WHY** it was built, one or two sentences each,
+  gloss first. The glosses are written from estate material (registry
+  titles, project records, the delivery chain) at build time. Where no
+  honest gloss exists the card says so: "Dossier pending", never
+  padding. Of the 44 nodes, 36 carry a full gloss, 6 carry a WHAT with
+  the WHY still on record as pending, and 2 are pending outright.
+* **Identity, as lived behaviour.** The thing's own IMBUUID from its
+  registry record, its ANCESTOR (the record it hangs from: the estate
+  root, or the Says Network for a city), the layers it is a MEMBER OF,
+  and the state its identity was minted in. This is how IMBUUID is
+  taught here: not as a format, but as behaviour you can watch. The
+  address names the thing, the registry grades it, and the delivery
+  chain receipts everything that lands on it. Claim level only; no
+  codec or mechanism detail is published.
+* **A timeline from the record.** Real events only, baked at build
+  time: SELF.OWN delivery records that name the thing (date, kind,
+  title), the birth of its GitHub repo where the node maps to one, and
+  the birth of its gists where a gist is the thing's artifact. Every
+  entry traces to a record; there are no decorative entries. Timeline
+  entries are text, never links, so the card cannot lead off the page.
+
+## Layers are data
+
+A layer is a small declarative document, not engine code. The documents
+live in `assets/layers/` (one JSON file per layer) and `build_data.py`
+bakes them into `assets/layers.js`; the page's engine interprets them.
+Each document declares:
+
+* `id`, `name`, `gloss`: what the layer is called and what it means.
+* `population`: the rule that selects its nodes (`all`, `hostSuffix`,
+  or `hostList`, plus `alsoHosts` for named exceptions).
+* `flow`: the arc rule. `hub` draws gold arcs from the San Francisco
+  hub to each member; `hub+mesh` adds arcs between each member and its
+  `k` nearest neighbours in the population.
+* `entryPoints`: the layer's doors (the hub, and any member that acts
+  as one), and `hubLabel`, the label the hub carries in this layer.
+* `leaderboard`: its scope. The board, the headline total, the globe,
+  and node picking all re-scope to the active layer's population.
+
+Two documents ship today. **ESTATE** is the full registry. **SAYS** is
+the Says network only: the ten city presences, the Sonoma voxel twin,
+and SPOC, the network node, with mesh arcs between neighbours, the hub
+labelled as the entry point, and the board re-scoped to twelve sites.
+Adding a layer (SCPM is the expected third) means writing its document
+and rerunning `build_data.py`. No engine logic changes.
 
 ### Nothing leaves the page
 
@@ -99,10 +152,15 @@ The flow figures are **AMBIENT**: decorative values seeded from the
 registry and eased by sine curves. No live traffic feed exists for the
 estate today, and this page does not claim one. The live telemetry globe
 is a separate mission control build that waits on per-domain bandwidth
-instrumentation. What is real here is the inventory: the sites, their
-hosts, their registry grades, and their colors all come from
-`sites/imbuuid-registry/registry.json` in the estate tree, baked into
-`assets/nodes.js` by `build_data.py`.
+instrumentation. What is real here is the inventory and the record: the
+sites, their hosts, their registry grades, their identities and
+ancestors, and their colors all come from
+`sites/imbuuid-registry/registry.json` in the estate tree; the card
+timelines come from the SELF.OWN delivery chain
+(`selfport/deliveries.jsonl`) and from GitHub creation dates fetched at
+build time (cached in `assets/births.json`); the layers come from the
+documents in `assets/layers/`. All of it is baked into `assets/nodes.js`
+and `assets/layers.js` by `build_data.py`. The page itself stays static.
 
 ## Run it in a browser
 
@@ -181,11 +239,13 @@ flowchart LR
 
 * `index.html` is the whole experience: scene, labels, leaderboard, and
   the interaction layer (drag rotation with inertia, node picking,
-  detail card, fly-to, the `?open=` deep link, the in-page pop panel,
-  and the phone layout with its bottom bar and site sheet).
-* `assets/nodes.js` is generated data. Regenerate it after the registry
-  changes with `python3 build_data.py` (edit the registry path at the top
-  of the script if your estate tree lives elsewhere).
+  dossier card, fly-to, the `?open=` and `?layer=` deep links, the
+  in-page pop panel, the layer switcher, and the phone layout with its
+  bottom bar and site sheet).
+* `assets/nodes.js` and `assets/layers.js` are generated data.
+  Regenerate them after the registry, the delivery chain, or the layer
+  documents change with `python3 build_data.py` (edit the source paths
+  at the top of the script if your estate tree lives elsewhere).
 * `vendor/three.part0` to `three.part8` are the estate's vendored
   three.js r160 module build, split into chunks and rejoined in the
   browser, the same loading pattern the Says and lenses globes use.
@@ -229,6 +289,19 @@ flowchart LR
   instead: estate.somacosf.com refuses framing outright, while
   itpm.somacosf.com and vox.sonomasays.com send no framing headers
   and will embed in a real browser.
+* The dossier card was rendered through the same deep link and read
+  back: WHAT and WHY filled for itpm.somacosf.com, IDENTITY showing
+  its registry IMBUUID, ANCESTOR reading estate:somacosf, MEMBER OF
+  reading ESTATE, and a timeline of its real delivery records (the
+  commissioning dossier entries of 2026-11-21 at the head). The phone
+  render shows the same card as a bottom sheet with the selected node
+  ringed in gold above it.
+* The Says layer was rendered through `?layer=says` and read back:
+  twelve rows on the board, the headline total re-scoped to the layer,
+  mesh arcs between the city neighbours, the hub labelled as the entry
+  point, and every non-Says node, arc, and row gone. The layer is the
+  `assets/layers/says.json` document interpreted by the engine; the
+  ESTATE view is the `estate.json` document beside it.
 * The live deployment serves byte-identical files.
 * UNVERIFIED: the idle trigger on a real Omarchy or Somacomarchy install.
   No such machine was available when this was built, so the hypridle
