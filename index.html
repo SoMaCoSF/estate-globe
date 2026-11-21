@@ -74,6 +74,64 @@
   footer .gold{color:var(--gold)}
   #fallback{position:fixed;inset:0;display:none;place-items:center;text-align:center;color:var(--dim);
             font-size:14px;line-height:2;padding:30px}
+  #sheetClose{display:none}
+  .cr .lk{color:var(--ink);text-align:right;word-break:break-all;cursor:pointer}
+  .cr .lk:hover{text-decoration:underline}
+  #cardOpen{background:none;font-family:inherit;cursor:pointer}
+  #mbar{display:none}
+  /* in-page pop panel: the site opens inside the globe page, never away from it */
+  #pop{position:fixed;inset:5vh 5vw;z-index:9;background:var(--panel);border:1px solid var(--line);
+       border-top:2px solid var(--gold);backdrop-filter:blur(10px);display:flex;flex-direction:column}
+  #pop[hidden]{display:none}
+  #popHead{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line)}
+  #popHead .dot{width:9px;height:9px;flex:none}
+  #popName{font-size:14px;letter-spacing:.02em;white-space:nowrap}
+  #popUrlTxt{flex:1;font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #popClose{background:none;border:none;color:var(--dim);font-size:18px;line-height:1;cursor:pointer;
+            font-family:inherit;padding:4px}
+  #popClose:hover{color:var(--ink)}
+  #popBody{position:relative;flex:1}
+  #popFrame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#070b14}
+  #popStatus{position:absolute;top:14px;left:0;right:0;text-align:center;font-size:11px;
+             letter-spacing:.22em;color:var(--faint);pointer-events:none}
+  #popStatus[hidden]{display:none}
+  #popNote{position:absolute;left:0;right:0;bottom:0;padding:14px 18px;z-index:2;
+           background:rgba(8,12,22,.96);border-top:1px solid var(--line);
+           font-size:12px;line-height:1.75;color:var(--dim)}
+  #popNote[hidden]{display:none}
+  #popNote b{color:var(--ink);font-weight:400;word-break:break-all}
+  #popNoteClose{float:right;background:none;border:none;color:var(--dim);font-size:15px;
+                line-height:1;cursor:pointer;font-family:inherit;padding:0 0 4px 10px}
+  #popNoteClose:hover{color:var(--ink)}
+  @media (max-width:720px){
+    header{top:12px;left:14px;right:14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px}
+    .eyebrow{font-size:9px;letter-spacing:.24em}
+    #total{font-size:30px;margin-top:0}
+    #total small{font-size:13px}
+    .flowlabel{font-size:9.5px;letter-spacing:.24em;margin-top:0}
+    .sub{flex-basis:100%;margin-top:6px;font-size:10.5px;line-height:1.55;max-width:none}
+    #clock{display:none}
+    footer{display:none}
+    #mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:4;align-items:center;gap:12px;
+          padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+          background:rgba(8,12,22,.55);border-top:1px solid var(--line);
+          backdrop-filter:blur(10px);opacity:.94}
+    .mbarFlow{flex:1;font-size:17px;color:#f2f6fd;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .mbarFlow small{font-size:11px;color:var(--dim)}
+    .mbarAmb{margin-left:9px;font-size:9px;letter-spacing:.26em;color:var(--gold)}
+    #sitesBtn{font-family:inherit;font-size:11px;letter-spacing:.24em;color:var(--ink);
+              background:rgba(132,148,173,.10);border:1px solid var(--line);padding:9px 16px;cursor:pointer}
+    aside{display:none}
+    aside.open{display:flex;left:0;right:0;top:auto;bottom:0;width:100%;height:64%;z-index:7;
+               border-left:none;border-top:1px solid var(--line);background:rgba(8,12,22,.88)}
+    aside h2{display:flex;align-items:center;justify-content:space-between}
+    #sheetClose{display:block;background:none;border:none;color:var(--dim);font-size:18px;
+                line-height:1;cursor:pointer;font-family:inherit;padding:2px 4px}
+    #board{overflow-y:auto;touch-action:pan-y}
+    #card{left:0;right:0;top:auto;bottom:0;transform:none;width:100%;max-height:55%;
+          overflow-y:auto;padding:16px 18px calc(14px + env(safe-area-inset-bottom))}
+    #pop{inset:10px 8px}
+  }
 </style>
 </head>
 <body>
@@ -86,11 +144,30 @@
   <div class="cardName"><span class="dot" id="cardDot"></span><span id="cardName"></span></div>
   <div class="cardTitle" id="cardTitle"></div>
   <div class="cardRows">
-    <div class="cr"><span>URL</span><a id="cardUrl" target="_blank" rel="noopener"></a></div>
+    <div class="cr"><span>URL</span><span id="cardUrl" class="lk" title="View the site inside this page"></span></div>
     <div class="cr"><span>REGISTRY GRADE</span><b id="cardGrade"></b></div>
     <div class="cr"><span>AMBIENT FLOW</span><b id="cardFlow"></b></div>
   </div>
-  <a id="cardOpen" target="_blank" rel="noopener">Open site</a>
+  <button id="cardOpen" type="button">View site</button>
+</div>
+
+<div id="pop" hidden>
+  <div id="popHead">
+    <span class="dot" id="popDot"></span>
+    <span id="popName"></span>
+    <span id="popUrlTxt"></span>
+    <button id="popClose" type="button" aria-label="Close panel">×</button>
+  </div>
+  <div id="popBody">
+    <iframe id="popFrame" title="Site shown inside the Estate Globe page"></iframe>
+    <div id="popStatus">LOADING THE SITE INSIDE THIS PAGE</div>
+    <div id="popNote" hidden><button id="popNoteClose" type="button" aria-label="Hide note">×</button>Shown inside the globe page, which stays open behind this panel. If the frame stays blank or shows an error, the site does not allow embedding. Its address is <b id="popNoteUrl"></b>.</div>
+  </div>
+</div>
+
+<div id="mbar">
+  <div class="mbarFlow"><span id="mbarTotal">0</span><small> Gb/s</small><span class="mbarAmb">AMBIENT</span></div>
+  <button id="sitesBtn" type="button" aria-expanded="false">SITES</button>
 </div>
 
 <header>
@@ -102,7 +179,7 @@
 </header>
 
 <aside>
-  <h2>SITES BY <b>AMBIENT FLOW</b></h2>
+  <h2><span>SITES BY <b>AMBIENT FLOW</b></span><button id="sheetClose" type="button" aria-label="Close site list">×</button></h2>
   <div id="board"></div>
 </aside>
 
@@ -150,6 +227,7 @@ for (const n of nodes) {
   boardEl.appendChild(row);
   rows.set(n, { row, bar: row.querySelector('.bar i'), val: row.querySelector('.val') });
   row.addEventListener('click', () => {
+    closeSheet();
     if (estateAPI) estateAPI.flyTo(n); else openCard(n);
   });
 }
@@ -169,6 +247,7 @@ function flowOf(n, t) {
          (0.9 + 0.1 * Math.sin(t * 0.05 + n.phase * 2));
 }
 const totalEl = document.getElementById('total');
+const mbarTotalEl = document.getElementById('mbarTotal');
 setInterval(() => {
   const t = performance.now() / 1000;
   let total = 0, max = 0.001;
@@ -181,6 +260,7 @@ setInterval(() => {
     r.val.innerHTML = v.toFixed(1) + '<small> Gb/s</small>';
   });
   totalEl.innerHTML = total.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '<small> Gb/s</small>';
+  mbarTotalEl.textContent = total.toLocaleString('en-US', { maximumFractionDigits: 0 });
   updateCardFlow();
 }, 600);
 
@@ -206,11 +286,9 @@ function openCard(n) {
   document.getElementById('cardTitle').textContent = n.title || '';
   const url = document.getElementById('cardUrl');
   url.textContent = n.url;
-  url.href = n.url;
   document.getElementById('cardGrade').innerHTML =
     gradeText(n.grade) + (n.grade ? ' <small>' + n.grade + '</small>' : '');
   const open = document.getElementById('cardOpen');
-  open.href = n.url;
   open.style.color = n.color;
   cardEl.hidden = false;
   for (const [node, r] of rows) r.row.classList.toggle('sel', node === n);
@@ -229,6 +307,75 @@ function updateCardFlow() {
   document.getElementById('cardFlow').innerHTML = v.toFixed(1) + ' <small>Gb/s · AMBIENT</small>';
 }
 document.getElementById('cardClose').addEventListener('click', closeCard);
+
+/* site list sheet: on a narrow screen the leaderboard is an overlay sheet
+   opened from the bottom bar, never a fixed column over the globe */
+const asideEl = document.querySelector('aside');
+const sitesBtn = document.getElementById('sitesBtn');
+function openSheet() {
+  asideEl.classList.add('open');
+  sitesBtn.setAttribute('aria-expanded', 'true');
+}
+function closeSheet() {
+  asideEl.classList.remove('open');
+  sitesBtn.setAttribute('aria-expanded', 'false');
+}
+sitesBtn.addEventListener('click', () => {
+  if (asideEl.classList.contains('open')) closeSheet(); else openSheet();
+});
+document.getElementById('sheetClose').addEventListener('click', closeSheet);
+
+/* in-page pop panel: the estate's pop pattern. The site itself is framed
+   inside the globe page; no link on this page navigates away from it.
+   A framed page cannot be inspected from here (a refused frame and a
+   loaded one look identical to the parent), so the note under the frame
+   always rides with the panel: it names the address and explains a
+   blank or error frame, and it can be dismissed once read. */
+let popNode = null;
+let popTimer = null;
+const popEl = document.getElementById('pop');
+const popFrame = document.getElementById('popFrame');
+const popStatus = document.getElementById('popStatus');
+const popNote = document.getElementById('popNote');
+function openPop(n) {
+  popNode = n;
+  closeSheet();
+  const dot = document.getElementById('popDot');
+  dot.style.color = n.color;
+  dot.style.background = n.color;
+  const nm = document.getElementById('popName');
+  nm.textContent = n.board;
+  nm.style.color = n.color;
+  document.getElementById('popUrlTxt').textContent = n.url;
+  document.getElementById('popNoteUrl').textContent = n.url;
+  popNote.hidden = false;
+  popStatus.hidden = false;
+  popEl.hidden = false;
+  popFrame.src = n.url;
+  clearTimeout(popTimer);
+  popTimer = setTimeout(() => { if (popNode === n) popStatus.hidden = true; }, 12000);
+}
+function closePop() {
+  popNode = null;
+  clearTimeout(popTimer);
+  popEl.hidden = true;
+  popFrame.src = 'about:blank';
+}
+popFrame.addEventListener('load', () => {
+  if (!popNode) return;
+  clearTimeout(popTimer);
+  popStatus.hidden = true;
+});
+document.getElementById('popClose').addEventListener('click', closePop);
+document.getElementById('popNoteClose').addEventListener('click', () => { popNote.hidden = true; });
+document.getElementById('cardOpen').addEventListener('click', () => { if (cardNode) openPop(cardNode); });
+document.getElementById('cardUrl').addEventListener('click', () => { if (cardNode) openPop(cardNode); });
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!popEl.hidden) closePop();
+  else if (cardNode) closeCard();
+  else closeSheet();
+});
 
 if (!THREE) {
   document.getElementById('fallback').style.display = 'grid';
@@ -408,6 +555,9 @@ function init(THREE) {
   function refreshScales() { for (const n of nodes) if (n._sprite) setSpriteScale(n); }
   function showSelection(n) {
     selectedNode = n;
+    /* on a phone the card is a bottom sheet: lift the globe so the
+       selected node stays in the open sky above it where possible */
+    globe.position.y = (innerWidth <= 720 && n) ? 0.55 : 0;
     if (n) {
       selRing.position.copy(n._v).multiplyScalar(1.004);
       selRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1),
@@ -559,7 +709,15 @@ function init(THREE) {
 
   function resize() {
     renderer.setSize(innerWidth, innerHeight);
-    camera.aspect = innerWidth / innerHeight;
+    const aspect = innerWidth / innerHeight;
+    camera.aspect = aspect;
+    /* narrow screens: the globe goes full bleed and centred, and the
+       camera steps back until the whole earth fits the width. Desktop
+       geometry is untouched: the step-back never engages there. */
+    const mobile = innerWidth <= 720;
+    globe.position.x = mobile ? 0 : -0.85;
+    const zNeed = 2.0 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * aspect);
+    camera.position.z = Math.max(5.8, Math.min(zNeed, 16));
     camera.updateProjectionMatrix();
   }
   addEventListener('resize', resize);

@@ -1,6 +1,6 @@
 <!--
 Ghost Catalog: SOM-DOC-10894-v1.0.0
-Stamp requested from Prime 2026-11-21. Do not cite a number until assigned.
+Stamp assigned by Prime 2026-11-21.
 -->
 
 # Estate Globe
@@ -19,6 +19,16 @@ Somacomarchy.
 ![Estate Globe at 1600px](estate-globe-1600.png)
 
 ![Detail card open for itpm.somacosf.com](estate-globe-card-1600.png)
+
+![Pop panel open on desktop](estate-globe-pop-1600.png)
+
+![Globe on a phone, faded bottom bar](estate-globe-mobile-390.png)
+
+![Site list sheet open on a phone](estate-globe-mobile-sheet-390.png)
+
+![Detail card as a bottom sheet on a phone](estate-globe-mobile-card-390.png)
+
+![Pop panel on a phone, a site that refuses embedding](estate-globe-pop-390.png)
 
 ## The picture
 
@@ -44,13 +54,44 @@ becomes a browser for the estate.
   three idle seconds. One finger does the same on touch screens.
 * Hover a node to see its name. Click or tap a node and a detail card
   opens: the site name in its own color, its title, its URL, the
-  registry grade recorded for it, its ambient flow figure, and an
-  Open site link. A gold ring marks the selected node on the globe.
-  Click empty space or the card's close button to dismiss it.
+  registry grade recorded for it, and its ambient flow figure. A gold
+  ring marks the selected node on the globe. Click empty space or the
+  card's close button to dismiss it.
 * Click a row in the leaderboard and the globe flies to that site and
   opens its card.
 * Deep link: `?open=<host>` (for example `?open=itpm.somacosf.com`)
   loads the page already turned to that site with its card open.
+
+### Nothing leaves the page
+
+No link on the globe takes the reader away from it. The card's URL and
+its View site button both open the estate's pop panel inside the page:
+a framed view of the site itself, with the site name and address in the
+panel header and a close control. A note under the frame names the
+address and explains the one failure mode: a site that refuses
+embedding shows a blank or error frame instead. Some estate sites do
+refuse (estate.somacosf.com sends `X-Frame-Options: DENY` and a CSP
+`frame-ancestors 'none'`), and for those the panel and its note are
+what the reader gets. The globe stays open behind the panel either
+way.
+
+### On a phone
+
+At 720px wide and below, the layout changes around the same globe:
+
+* The leaderboard rail leaves its fixed column. A slim translucent bar
+  docks at the bottom with the headline total and a SITES button, and
+  the globe runs full bleed behind everything, centred, with the
+  camera stepped back until the whole earth fits the width.
+* Tapping SITES opens the full leaderboard as a translucent overlay
+  sheet (scrollable, with its own close button). Tapping a row closes
+  the sheet, flies the globe, and opens the card, as on desktop.
+* The detail card becomes a bottom sheet: full width, at most 55% of
+  the screen height, and the globe lifts so the selected node stays in
+  the open sky above it where possible.
+* The header compacts to the title and total on one line, with the
+  AMBIENT label kept. The pop panel fills most of the screen, still
+  inside the page.
 
 ## Data, honestly
 
@@ -140,7 +181,8 @@ flowchart LR
 
 * `index.html` is the whole experience: scene, labels, leaderboard, and
   the interaction layer (drag rotation with inertia, node picking,
-  detail card, fly-to, and the `?open=` deep link).
+  detail card, fly-to, the `?open=` deep link, the in-page pop panel,
+  and the phone layout with its bottom bar and site sheet).
 * `assets/nodes.js` is generated data. Regenerate it after the registry
   changes with `python3 build_data.py` (edit the registry path at the top
   of the script if your estate tree lives elsewhere).
@@ -167,6 +209,26 @@ flowchart LR
   shipped speed; a node click opens the matching card; an empty-space
   click dismisses it; a leaderboard row click flies to the site and
   opens its card. No page errors were logged.
+* Mobile renders at 390 by 844 were read back in three states: the
+  default view (compact header, full bleed globe, faded bottom bar
+  with the total and SITES), the leaderboard open as an overlay sheet,
+  and the detail card open as a bottom sheet with the selected node
+  ringed in gold above it. A scripted touch drag moved 16 of 24
+  tracked labels by more than 40px, against a couple of pixels of
+  auto-rotation drift in the same window, so drag rotation is verified
+  on touch as well as mouse. The desktop renders were re-shot after
+  the change and match the shipped layout.
+* The pop panel was exercised both ways. The refusal state is real and
+  screenshotted on a phone: itpm.somacosf.com in a frame, the panel
+  header and the note strip naming the address. The embedded state is
+  screenshotted on desktop with the panel framing a local copy of this
+  page, its address visible in the panel header; the proof drives the
+  shipped View site path with one node's address retargeted, because
+  this build machine's headless Chrome cannot traverse the egress
+  proxy to live subframes. Response headers were checked with curl
+  instead: estate.somacosf.com refuses framing outright, while
+  itpm.somacosf.com and vox.sonomasays.com send no framing headers
+  and will embed in a real browser.
 * The live deployment serves byte-identical files.
 * UNVERIFIED: the idle trigger on a real Omarchy or Somacomarchy install.
   No such machine was available when this was built, so the hypridle
