@@ -108,12 +108,24 @@ Each document declares:
 * `leaderboard`: its scope. The board, the headline total, the globe,
   and node picking all re-scope to the active layer's population.
 
-Two documents ship today. **ESTATE** is the full registry. **SAYS** is
+Four documents ship today. **ESTATE** is the full registry. **SAYS** is
 the Says network only: the ten city presences, the Sonoma voxel twin,
 and SPOC, the network node, with mesh arcs between neighbours, the hub
 labelled as the entry point, and the board re-scoped to twelve sites.
-Adding a layer (SCPM is the expected third) means writing its document
-and rerunning `build_data.py`. No engine logic changes.
+**SUPPLY CHAIN** is the chain read through the estate's own surfaces:
+SCPM, the atlas, and the datacenter working end, hubbed and meshed,
+its flows labelled modelled. **GEOHEX** is the tiling read as the
+subject: the full population on addressed ground, hub flow only.
+Adding a layer means writing its document and rerunning
+`build_data.py`. No engine logic changes.
+
+Two further documents are written and staged in
+`assets/layers-staged/`, not baked: **SHELLS** (the Cayman construct,
+hubbed on cayman.somacosf.com) and **SPACE** (the SIDC layer, hubbed
+on sidc.somacosf.com). Both sites are live, but neither host is in the
+registry yet, so neither is a node the engine can select. The moment
+a registry record lands for either host, its document moves into
+`assets/layers/` unchanged and the next bake lights the layer up.
 
 ### Nothing leaves the page
 

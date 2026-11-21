@@ -1,0 +1,1 @@
+{"entryPoints":[{"host":"sidc.somacosf.com","kind":"host","label":"SIDC, orbital data centers"}],"flow":{"mesh":null,"type":"hub"},"gloss":"The SIDC layer: the orbital data center census, read from above.","hubLabel":"SAN FRANCISCO HUB · GROUND STATION","id":"space","leaderboard":{"scope":"layer"},"name":"SPACE","population":{"hosts":["sidc.somacosf.com"],"type":"hostList"}}
