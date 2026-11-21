@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Estate Globe screen saver launcher for Omarchy / Somacomarchy.
+# Hyprland + hypridle: hypridle starts this on idle and kills it on resume
+# (see hypridle-snippet.conf). It can also be run by hand to preview.
+#
+# The page loads its three.js build in chunks over http, which a file://
+# origin cannot do (module CORS), so the launcher serves this folder on
+# 127.0.0.1 first. Set ESTATE_GLOBE_URL to skip the local server and open
+# that address instead (for example the live demo). Set ESTATE_GLOBE_PORT
+# to change the local port (keep it in step with hypridle-snippet.conf).
+set -u
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PORT="${ESTATE_GLOBE_PORT:-8791}"
+URL="${ESTATE_GLOBE_URL:-}"
+SERVER_PID=""
+
+cleanup() {
+  if [ -n "$SERVER_PID" ]; then kill "$SERVER_PID" 2>/dev/null; fi
+}
+trap cleanup EXIT
+
+if [ -z "$URL" ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$DIR" >/dev/null 2>&1 &
+    SERVER_PID=$!
+    sleep 1
+    URL="http://127.0.0.1:$PORT/index.html"
+  else
+    # Documented fallback when python3 is absent: the live demo page.
+    URL="https://estate-globe.vercel.app"
+  fi
+fi
+
+BROWSER=""
+for B in chromium chromium-browser google-chrome google-chrome-stable brave brave-browser; do
+  if command -v "$B" >/dev/null 2>&1; then BROWSER="$B"; break; fi
+done
+
+if [ -n "$BROWSER" ]; then
+  "$BROWSER" --kiosk --app="$URL" --no-first-run --disable-infobars --hide-scrollbars
+  exit $?
+fi
+
+if command -v firefox >/dev/null 2>&1; then
+  firefox --kiosk "$URL"
+  exit $?
+fi
+
+# Last resort: the default browser. It opens the page but is not locked
+# fullscreen; hypridle still kills it on resume only if the on-resume
+# patterns match, so prefer a Chromium family browser.
+xdg-open "$URL"

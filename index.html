@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estate Globe · Somaco Screen Saver</title>
+<style>
+  :root{
+    --bg:#04060b; --ink:#dbe4f2; --dim:#8494ad; --faint:#55637c;
+    --gold:#C9A227; --panel:rgba(8,12,22,.82); --line:rgba(132,148,173,.22);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--bg);overflow:hidden}
+  body{font-family:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;color:var(--ink)}
+  #gl{position:fixed;inset:0;display:block}
+  #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+  .lbl{position:absolute;transform:translate(10px,-50%);font-size:10px;letter-spacing:.08em;
+       white-space:nowrap;text-shadow:0 1px 6px #000,0 0 2px #000}
+  .lbl::before{content:"";position:absolute;left:-13px;top:50%;width:5px;height:5px;border-radius:50%;
+       background:currentColor;transform:translateY(-50%)}
+  header{position:fixed;top:34px;left:38px;pointer-events:none;z-index:3}
+  .eyebrow{font-size:11px;letter-spacing:.34em;color:var(--dim)}
+  .eyebrow b{color:var(--gold);font-weight:600}
+  #total{font-size:92px;line-height:1.02;font-weight:200;letter-spacing:-.01em;margin-top:10px;color:#f2f6fd}
+  #total small{font-size:26px;color:var(--dim);letter-spacing:.06em}
+  .flowlabel{font-size:12px;letter-spacing:.30em;color:var(--gold);margin-top:2px}
+  .sub{margin-top:16px;font-size:12px;line-height:1.75;color:var(--dim);max-width:330px}
+  #clock{margin-top:14px;font-size:12px;letter-spacing:.22em;color:var(--faint)}
+  aside{position:fixed;top:0;right:0;width:338px;height:100%;z-index:3;background:var(--panel);
+        border-left:1px solid var(--line);backdrop-filter:blur(9px);display:flex;flex-direction:column}
+  aside h2{font-size:11px;letter-spacing:.30em;color:var(--dim);font-weight:600;
+           padding:20px 20px 12px;border-bottom:1px solid var(--line)}
+  aside h2 b{color:var(--gold);font-weight:600}
+  #board{flex:1;overflow:hidden;display:flex;flex-direction:column;padding:8px 0}
+  .row{display:flex;align-items:center;gap:9px;padding:3.5px 20px;font-size:11.5px;min-height:21px}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 7px currentColor}
+  .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}
+  .bar{width:64px;height:3px;background:rgba(132,148,173,.18);flex:none}
+  .bar i{display:block;height:100%}
+  .val{width:64px;text-align:right;color:var(--ink);flex:none;font-variant-numeric:tabular-nums}
+  .val small{color:var(--faint);font-size:9.5px}
+  footer{position:fixed;left:38px;bottom:30px;z-index:3;pointer-events:none;
+         font-size:11.5px;line-height:1.8;color:var(--dim)}
+  footer .gold{color:var(--gold)}
+  #fallback{position:fixed;inset:0;display:none;place-items:center;text-align:center;color:var(--dim);
+            font-size:14px;line-height:2;padding:30px}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+
+<header>
+  <div class="eyebrow"><b>SOMACOSF</b> · THE ESTATE ON A GLOBE</div>
+  <div id="total">0<small> Gb/s</small></div>
+  <div class="flowlabel">AMBIENT FLOW</div>
+  <p class="sub" id="counts"></p>
+  <div id="clock"></div>
+</header>
+
+<aside>
+  <h2>SITES BY <b>AMBIENT FLOW</b></h2>
+  <div id="board"></div>
+</aside>
+
+<footer>
+  <div><span class="gold">Gold rays</span> run from the San Francisco hub to every site.</div>
+  <div>Each subdomain keeps its own color. Says cities sit at their true coordinates.</div>
+  <div style="color:var(--faint)">Ambient motion only. This globe carries no live traffic feed;
+  the rays are decorative, and the figures are seeded from the registry, not measured.</div>
+</footer>
+
+<div id="fallback"><div>ESTATE GLOBE<br>
+<span style="font-size:12px">WebGL is unavailable in this browser, so the globe cannot render.<br>
+Try Chromium with hardware acceleration enabled.</span></div></div>
+
+<script src="assets/nodes.js"></script>
+<script type="module">
+const GOLD = '#C9A227';
+const DATA = window.ESTATE_DATA;
+const nodes = DATA.nodes;
+
+/* three.js arrives in chunks (estate pattern): fetch, join, import from a Blob */
+let THREE = null;
+try {
+  const parts = [];
+  for (let i = 0; i < 9; i++) {
+    const r = await fetch('vendor/three.part' + i);
+    if (!r.ok) throw new Error('chunk ' + i);
+    parts.push(await r.blob());
+  }
+  THREE = await import(URL.createObjectURL(new Blob(parts, { type: 'text/javascript' })));
+} catch (e) { /* fall through to the fallback panel */ }
+
+const boardEl = document.getElementById('board');
+const rows = new Map();
+for (const n of nodes) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = '<span class="dot" style="color:' + n.color + ';background:' + n.color + '"></span>' +
+    '<span class="nm" style="color:' + n.color + '">' + n.board + '</span>' +
+    '<span class="bar"><i style="background:' + n.color + '"></i></span>' +
+    '<span class="val">0<small> Gb/s</small></span>';
+  boardEl.appendChild(row);
+  rows.set(n, { row, bar: row.querySelector('.bar i'), val: row.querySelector('.val') });
+}
+document.getElementById('counts').textContent =
+  DATA.records + ' registry records · ' + nodes.length + ' sites · ' +
+  nodes.filter(n => n.host.endsWith('.somacosf.com')).length +
+  ' somacosf.com subdomains, each in its own color';
+
+const clockEl = document.getElementById('clock');
+setInterval(() => {
+  clockEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+    ' · SAN FRANCISCO HUB';
+}, 1000);
+
+function flowOf(n, t) {
+  return n.base * (0.72 + 0.28 * Math.sin(t * n.speed + n.phase)) *
+         (0.9 + 0.1 * Math.sin(t * 0.05 + n.phase * 2));
+}
+const totalEl = document.getElementById('total');
+setInterval(() => {
+  const t = performance.now() / 1000;
+  let total = 0, max = 0.001;
+  const vals = nodes.map(n => { const v = flowOf(n, t); total += v; if (v > max) max = v; return v; });
+  const order = nodes.map((n, i) => i).sort((a, b) => vals[b] - vals[a]);
+  order.forEach((ni, rank) => {
+    const n = nodes[ni], r = rows.get(n), v = vals[ni];
+    r.row.style.order = rank;
+    r.bar.style.width = (100 * v / max).toFixed(1) + '%';
+    r.val.innerHTML = v.toFixed(1) + '<small> Gb/s</small>';
+  });
+  totalEl.innerHTML = total.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '<small> Gb/s</small>';
+}, 600);
+
+if (!THREE) {
+  document.getElementById('fallback').style.display = 'grid';
+} else {
+  try { init(THREE); } catch (e) {
+    document.getElementById('fallback').style.display = 'grid';
+  }
+}
+
+function init(THREE) {
+  const R = 1.55;
+  const canvas = document.getElementById('gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x04060b);
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+  camera.position.set(0, 0, 5.8);
+
+  const tilt = new THREE.Group();
+  tilt.rotation.set(0.30, 0, 0.05);
+  scene.add(tilt);
+  const globe = new THREE.Group();
+  globe.position.x = -0.85;
+  tilt.add(globe);
+
+  const ll2v = (lat, lon, r) => {
+    const phi = (90 - lat) * Math.PI / 180, th = (lon + 180) * Math.PI / 180;
+    return new THREE.Vector3(-r * Math.sin(phi) * Math.cos(th), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(th));
+  };
+
+  /* stars */
+  {
+    const n = 1000, pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const v = new THREE.Vector3().randomDirection().multiplyScalar(46 + Math.random() * 30);
+      pos.set([v.x, v.y, v.z], i * 3);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({
+      color: 0x8fa5c8, size: 1.35, sizeAttenuation: false, transparent: true, opacity: 0.55, fog: false })));
+  }
+
+  /* occluding core */
+  globe.add(new THREE.Mesh(new THREE.SphereGeometry(R * 0.992, 48, 48),
+    new THREE.MeshBasicMaterial({ color: 0x050a15 })));
+
+  /* dotted earth */
+  {
+    const n = 6800, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+    const ga = Math.PI * (3 - Math.sqrt(5));
+    const c1 = new THREE.Color(0x39507a), c2 = new THREE.Color(0x5d7cae), tmp = new THREE.Color();
+    for (let i = 0; i < n; i++) {
+      const y = 1 - (i / (n - 1)) * 2, rad = Math.sqrt(1 - y * y), th = ga * i;
+      pos.set([Math.cos(th) * rad * R, y * R, Math.sin(th) * rad * R], i * 3);
+      tmp.copy(c1).lerp(c2, Math.random());
+      col.set([tmp.r, tmp.g, tmp.b], i * 3);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    globe.add(new THREE.Points(g, new THREE.PointsMaterial({
+      size: 0.016, vertexColors: true, transparent: true, opacity: 0.85 })));
+  }
+
+  /* atmosphere */
+  globe.add(new THREE.Mesh(new THREE.SphereGeometry(R * 1.15, 48, 48), new THREE.ShaderMaterial({
+    vertexShader: 'varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal);' +
+      ' gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: 'varying vec3 vN; void main(){ float i = pow(0.66 - dot(vN, vec3(0.0,0.0,1.0)), 3.2);' +
+      ' gl_FragColor = vec4(0.30, 0.45, 0.75, 1.0) * i * 0.55; }',
+    blending: THREE.AdditiveBlending, side: THREE.BackSide, transparent: true, depthWrite: false })));
+
+  /* glow texture for markers and pulses */
+  const glowTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d');
+    const gr = x.createRadialGradient(64, 64, 2, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)');
+    gr.addColorStop(0.18, 'rgba(255,255,255,0.5)');
+    gr.addColorStop(0.45, 'rgba(255,255,255,0.12)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  })();
+
+  const hubV = ll2v(DATA.hub.lat, DATA.hub.lon, R);
+
+  /* hub ring in gold */
+  {
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.055, 0.078, 40),
+      new THREE.MeshBasicMaterial({ color: GOLD, side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+    ring.position.copy(hubV.clone().multiplyScalar(1.002));
+    ring.lookAt(hubV.clone().multiplyScalar(2));
+    globe.add(ring);
+    const hubDot = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: GOLD, transparent: true, depthWrite: false }));
+    hubDot.position.copy(hubV); hubDot.scale.setScalar(0.20);
+    globe.add(hubDot);
+  }
+
+  /* node markers, gold arcs, pulses */
+  const labelLayer = document.getElementById('labels');
+  const arcs = [];
+  const pulsePos = [];
+  for (const n of nodes) {
+    const v = ll2v(n.lat, n.lon, R);
+    n._v = v;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: new THREE.Color(n.color), transparent: true, depthWrite: false }));
+    s.position.copy(v);
+    s.scale.setScalar(n.real ? 0.13 : 0.095);
+    globe.add(s);
+
+    const dist = hubV.distanceTo(v);
+    if (dist > 0.05) {
+      const mid = hubV.clone().add(v).multiplyScalar(0.5).normalize()
+        .multiplyScalar(R + dist * 0.38);
+      const curve = new THREE.QuadraticBezierCurve3(hubV, mid, v);
+      const pts = curve.getPoints(72);
+      const cg = new THREE.BufferGeometry().setFromPoints(pts);
+      const cols = new Float32Array(pts.length * 3);
+      const gold = new THREE.Color(GOLD), tmp = new THREE.Color();
+      pts.forEach((p, i) => {
+        const f = Math.sin(Math.PI * i / (pts.length - 1));
+        tmp.copy(gold).multiplyScalar(0.12 + 0.88 * f);
+        cols.set([tmp.r, tmp.g, tmp.b], i * 3);
+      });
+      cg.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      globe.add(new THREE.Line(cg, new THREE.LineBasicMaterial({
+        vertexColors: true, transparent: true, opacity: 0.5,
+        blending: THREE.AdditiveBlending, depthWrite: false })));
+      arcs.push({ curve, speed: 0.05 + Math.random() * 0.08, off: Math.random() });
+      pulsePos.push(0, 0, 0, 0, 0, 0);
+    }
+    const lbl = document.createElement('div');
+    lbl.className = 'lbl';
+    lbl.style.color = n.color;
+    lbl.textContent = n.board;
+    labelLayer.appendChild(lbl);
+    n._lbl = lbl;
+  }
+  const pulseGeo = new THREE.BufferGeometry();
+  pulseGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pulsePos), 3));
+  const pulses = new THREE.Points(pulseGeo, new THREE.PointsMaterial({
+    map: glowTex, color: GOLD, size: 0.11, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending }));
+  globe.add(pulses);
+
+  function resize() {
+    renderer.setSize(innerWidth, innerHeight);
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  const camDir = new THREE.Vector3(), wPos = new THREE.Vector3(), proj = new THREE.Vector3();
+  function tick() {
+    requestAnimationFrame(tick);
+    const t = performance.now() / 1000;
+    globe.rotation.y = t * 0.02;
+    const arr = pulseGeo.attributes.position.array;
+    arcs.forEach((a, i) => {
+      for (let k = 0; k < 2; k++) {
+        const u = (t * a.speed + a.off + k * 0.5) % 1;
+        const p = a.curve.getPoint(u);
+        arr.set([p.x, p.y, p.z], (i * 2 + k) * 3);
+      }
+    });
+    pulseGeo.attributes.position.needsUpdate = true;
+    renderer.render(scene, camera);
+    camera.getWorldDirection(camDir);
+    const gCenter = globe.getWorldPosition(new THREE.Vector3());
+    const vis = [];
+    for (const n of nodes) {
+      wPos.copy(n._v).applyMatrix4(globe.matrixWorld);
+      const facing = wPos.clone().sub(gCenter).normalize().dot(camDir.clone().negate());
+      if (facing < 0.30) { n._lbl.style.display = 'none'; continue; }
+      proj.copy(wPos).project(camera);
+      const y = (-proj.y * 0.5 + 0.5) * innerHeight;
+      if (y < 8 || y > innerHeight - 64) { n._lbl.style.display = 'none'; continue; }
+      n._lbl.style.display = 'block';
+      n._lbl.style.left = (proj.x * 0.5 + 0.5) * innerWidth + 'px';
+      n._lbl.style.opacity = Math.min(1, (facing - 0.30) * 2.4).toFixed(2);
+      vis.push({ n, y });
+    }
+    /* de-collision: sort by height and enforce a 13px minimum gap */
+    vis.sort((a, b) => a.y - b.y);
+    let prev = -Infinity;
+    for (const v of vis) {
+      v.y = Math.max(v.y, prev + 13);
+      prev = v.y;
+      v.n._lbl.style.top = v.y + 'px';
+    }
+  }
+  tick();
+}
+</script>
+</body>
+</html>
