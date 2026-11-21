@@ -1,5 +1,5 @@
 <!--
-Ghost Catalog: SOM-DOC-PENDING-v1.0.0
+Ghost Catalog: SOM-DOC-10894-v1.0.0
 Stamp requested from Prime 2026-11-21. Do not cite a number until assigned.
 -->
 
@@ -18,6 +18,8 @@ Somacomarchy.
 
 ![Estate Globe at 1600px](estate-globe-1600.png)
 
+![Detail card open for itpm.somacosf.com](estate-globe-card-1600.png)
+
 ## The picture
 
 * 44 sites from the estate registry (85 records) sit on the globe.
@@ -30,6 +32,25 @@ Somacomarchy.
 * Gold arcs run from the San Francisco hub to each site, with pulses of
   light travelling along them. The globe turns one full revolution in
   about five minutes.
+
+## Interaction
+
+Left alone, the globe is the screen saver it shipped as. Touch it and it
+becomes a browser for the estate.
+
+* Drag to spin: horizontal drag yaws the globe, vertical drag pitches
+  it, and a flick keeps spinning with inertia before it settles.
+  Auto-rotation pauses while you interact and resumes after about
+  three idle seconds. One finger does the same on touch screens.
+* Hover a node to see its name. Click or tap a node and a detail card
+  opens: the site name in its own color, its title, its URL, the
+  registry grade recorded for it, its ambient flow figure, and an
+  Open site link. A gold ring marks the selected node on the globe.
+  Click empty space or the card's close button to dismiss it.
+* Click a row in the leaderboard and the globe flies to that site and
+  opens its card.
+* Deep link: `?open=<host>` (for example `?open=itpm.somacosf.com`)
+  loads the page already turned to that site with its card open.
 
 ## Data, honestly
 
@@ -117,7 +138,9 @@ flowchart LR
     IDLE["hypridle<br/>on idle / on resume"] --> SS
 ```
 
-* `index.html` is the whole experience: scene, labels, leaderboard.
+* `index.html` is the whole experience: scene, labels, leaderboard, and
+  the interaction layer (drag rotation with inertia, node picking,
+  detail card, fly-to, and the `?open=` deep link).
 * `assets/nodes.js` is generated data. Regenerate it after the registry
   changes with `python3 build_data.py` (edit the registry path at the top
   of the script if your estate tree lives elsewhere).
@@ -132,6 +155,18 @@ flowchart LR
 * Rendered headlessly at 1600 by 1000 from the exact bytes in this repo
   and read back: globe, gold rays, per-subdomain colors, labels, and the
   leaderboard are all visible and legible (see the screenshot above).
+* The detail card state was rendered the same way through the
+  `?open=itpm.somacosf.com` deep link and read back: the globe sits
+  turned to the site, the gold selection ring is on its node, the card
+  shows its name, title, URL, registry grade, and ambient flow, and its
+  leaderboard row carries the selection tint.
+* A scripted pointer probe (headless Chrome, real mouse events) verified
+  the interaction end to end: auto-rotation moves labels before any
+  input; a drag rotates the globe; after release the motion decays
+  through inertia, holds still for the idle window, then resumes at the
+  shipped speed; a node click opens the matching card; an empty-space
+  click dismisses it; a leaderboard row click flies to the site and
+  opens its card. No page errors were logged.
 * The live deployment serves byte-identical files.
 * UNVERIFIED: the idle trigger on a real Omarchy or Somacomarchy install.
   No such machine was available when this was built, so the hypridle

@@ -39,6 +39,36 @@
   .bar i{display:block;height:100%}
   .val{width:64px;text-align:right;color:var(--ink);flex:none;font-variant-numeric:tabular-nums}
   .val small{color:var(--faint);font-size:9.5px}
+  #gl{cursor:grab;touch-action:none}
+  #gl.grabbing{cursor:grabbing}
+  #gl.pick{cursor:pointer}
+  .row{cursor:pointer}
+  .row:hover{background:rgba(132,148,173,.07)}
+  .row.sel{background:rgba(201,162,39,.10)}
+  #tip{position:fixed;z-index:6;pointer-events:none;display:none;font-size:11px;letter-spacing:.06em;
+       background:var(--panel);border:1px solid var(--line);padding:5px 9px;border-radius:3px;
+       text-shadow:0 1px 4px #000;white-space:nowrap}
+  #card{position:fixed;left:38px;top:50%;transform:translateY(-50%);width:336px;z-index:5;
+        background:var(--panel);border:1px solid var(--line);border-top:2px solid var(--gold);
+        backdrop-filter:blur(9px);padding:20px 22px 18px}
+  #card[hidden]{display:none}
+  #cardClose{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--dim);
+        font-size:18px;line-height:1;cursor:pointer;font-family:inherit;padding:4px}
+  #cardClose:hover{color:var(--ink)}
+  .cardName{display:flex;align-items:center;gap:10px;font-size:17px;letter-spacing:.02em;padding-right:22px}
+  .cardName .dot{width:10px;height:10px;flex:none}
+  .cardTitle{margin-top:8px;font-size:12px;line-height:1.6;color:var(--dim)}
+  .cardRows{margin-top:14px;border-top:1px solid var(--line)}
+  .cr{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+      padding:8px 0;border-bottom:1px solid var(--line);font-size:11.5px}
+  .cr span{color:var(--faint);letter-spacing:.18em;font-size:10px;flex:none}
+  .cr b{font-weight:400;text-align:right;font-variant-numeric:tabular-nums}
+  .cr a{color:var(--ink);text-decoration:none;text-align:right;word-break:break-all}
+  .cr a:hover{text-decoration:underline}
+  .cr small{color:var(--faint);font-size:10px}
+  #cardOpen{display:inline-block;margin-top:14px;font-size:12px;letter-spacing:.14em;
+        text-decoration:none;border:1px solid var(--line);padding:8px 14px}
+  #cardOpen:hover{border-color:currentColor}
   footer{position:fixed;left:38px;bottom:30px;z-index:3;pointer-events:none;
          font-size:11.5px;line-height:1.8;color:var(--dim)}
   footer .gold{color:var(--gold)}
@@ -49,6 +79,19 @@
 <body>
 <canvas id="gl"></canvas>
 <div id="labels"></div>
+<div id="tip"></div>
+
+<div id="card" hidden>
+  <button id="cardClose" aria-label="Close">×</button>
+  <div class="cardName"><span class="dot" id="cardDot"></span><span id="cardName"></span></div>
+  <div class="cardTitle" id="cardTitle"></div>
+  <div class="cardRows">
+    <div class="cr"><span>URL</span><a id="cardUrl" target="_blank" rel="noopener"></a></div>
+    <div class="cr"><span>REGISTRY GRADE</span><b id="cardGrade"></b></div>
+    <div class="cr"><span>AMBIENT FLOW</span><b id="cardFlow"></b></div>
+  </div>
+  <a id="cardOpen" target="_blank" rel="noopener">Open site</a>
+</div>
 
 <header>
   <div class="eyebrow"><b>SOMACOSF</b> · THE ESTATE ON A GLOBE</div>
@@ -64,6 +107,7 @@
 </aside>
 
 <footer>
+  <div>Drag to spin the globe. Click a site, or a row on the right, to open its card.</div>
   <div><span class="gold">Gold rays</span> run from the San Francisco hub to every site.</div>
   <div>Each subdomain keeps its own color. Says cities sit at their true coordinates.</div>
   <div style="color:var(--faint)">Ambient motion only. This globe carries no live traffic feed;
@@ -79,6 +123,8 @@ Try Chromium with hardware acceleration enabled.</span></div></div>
 const GOLD = '#C9A227';
 const DATA = window.ESTATE_DATA;
 const nodes = DATA.nodes;
+/* set by init() once the scene exists: { flyTo(node), select(node|null) } */
+let estateAPI = null;
 
 /* three.js arrives in chunks (estate pattern): fetch, join, import from a Blob */
 let THREE = null;
@@ -103,6 +149,9 @@ for (const n of nodes) {
     '<span class="val">0<small> Gb/s</small></span>';
   boardEl.appendChild(row);
   rows.set(n, { row, bar: row.querySelector('.bar i'), val: row.querySelector('.val') });
+  row.addEventListener('click', () => {
+    if (estateAPI) estateAPI.flyTo(n); else openCard(n);
+  });
 }
 document.getElementById('counts').textContent =
   DATA.records + ' registry records · ' + nodes.length + ' sites · ' +
@@ -132,7 +181,54 @@ setInterval(() => {
     r.val.innerHTML = v.toFixed(1) + '<small> Gb/s</small>';
   });
   totalEl.innerHTML = total.toLocaleString('en-US', { maximumFractionDigits: 0 }) + '<small> Gb/s</small>';
+  updateCardFlow();
 }, 600);
+
+/* detail card */
+let cardNode = null;
+const cardEl = document.getElementById('card');
+function gradeText(g) {
+  if (!g) return 'NOT RECORDED';
+  if (g === 'NO-URL') return 'NO URL RECORDED';
+  if (g.indexOf('LIVE-200') === 0) return 'LIVE · HTTP 200';
+  const m = g.match(/(\d{3})$/);
+  if (m) return 'HTTP ' + m[1] + ' AT LAST CHECK';
+  return g;
+}
+function openCard(n) {
+  cardNode = n;
+  const dot = document.getElementById('cardDot');
+  dot.style.color = n.color;
+  dot.style.background = n.color;
+  const nm = document.getElementById('cardName');
+  nm.textContent = n.board;
+  nm.style.color = n.color;
+  document.getElementById('cardTitle').textContent = n.title || '';
+  const url = document.getElementById('cardUrl');
+  url.textContent = n.url;
+  url.href = n.url;
+  document.getElementById('cardGrade').innerHTML =
+    gradeText(n.grade) + (n.grade ? ' <small>' + n.grade + '</small>' : '');
+  const open = document.getElementById('cardOpen');
+  open.href = n.url;
+  open.style.color = n.color;
+  cardEl.hidden = false;
+  for (const [node, r] of rows) r.row.classList.toggle('sel', node === n);
+  if (estateAPI) estateAPI.select(n);
+  updateCardFlow();
+}
+function closeCard() {
+  cardNode = null;
+  cardEl.hidden = true;
+  for (const r of rows.values()) r.row.classList.remove('sel');
+  if (estateAPI) estateAPI.select(null);
+}
+function updateCardFlow() {
+  if (!cardNode) return;
+  const v = flowOf(cardNode, performance.now() / 1000);
+  document.getElementById('cardFlow').innerHTML = v.toFixed(1) + ' <small>Gb/s · AMBIENT</small>';
+}
+document.getElementById('cardClose').addEventListener('click', closeCard);
 
 if (!THREE) {
   document.getElementById('fallback').style.display = 'grid';
@@ -156,6 +252,7 @@ function init(THREE) {
   tilt.rotation.set(0.30, 0, 0.05);
   scene.add(tilt);
   const globe = new THREE.Group();
+  globe.rotation.order = 'YXZ';
   globe.position.x = -0.85;
   tilt.add(globe);
 
@@ -235,6 +332,12 @@ function init(THREE) {
     globe.add(hubDot);
   }
 
+  /* selection ring: gold, shown on the picked node only */
+  const selRing = new THREE.Mesh(new THREE.RingGeometry(0.088, 0.108, 40),
+    new THREE.MeshBasicMaterial({ color: GOLD, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }));
+  selRing.visible = false;
+  globe.add(selRing);
+
   /* node markers, gold arcs, pulses */
   const labelLayer = document.getElementById('labels');
   const arcs = [];
@@ -247,6 +350,8 @@ function init(THREE) {
     s.position.copy(v);
     s.scale.setScalar(n.real ? 0.13 : 0.095);
     globe.add(s);
+    n._sprite = s;
+    n._baseScale = s.scale.x;
 
     const dist = hubV.distanceTo(v);
     if (dist > 0.05) {
@@ -283,6 +388,175 @@ function init(THREE) {
     blending: THREE.AdditiveBlending }));
   globe.add(pulses);
 
+  /* interaction: drag to rotate with inertia, click to pick, fly to a site.
+     With no input the state machine sits in auto and the globe behaves
+     exactly as the screen saver shipped. */
+  const AUTO_SPEED = 0.02;   /* rad/s, one revolution in about five minutes */
+  const PITCH_MIN = -1.05, PITCH_MAX = 1.05;
+  let yaw = 0, pitch = 0;
+  let yawVel = 0, pitchVel = 0;
+  let mode = 'auto';         /* auto | drag | inertia | flight */
+  let lastInteract = -10;
+  let hoverNode = null, selectedNode = null;
+  let flight = null;
+  const tip = document.getElementById('tip');
+
+  function setSpriteScale(n) {
+    const f = n === selectedNode ? 1.45 : n === hoverNode ? 1.22 : 1;
+    n._sprite.scale.setScalar(n._baseScale * f);
+  }
+  function refreshScales() { for (const n of nodes) if (n._sprite) setSpriteScale(n); }
+  function showSelection(n) {
+    selectedNode = n;
+    if (n) {
+      selRing.position.copy(n._v).multiplyScalar(1.004);
+      selRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1),
+        n._v.clone().normalize());
+      selRing.visible = true;
+    } else {
+      selRing.visible = false;
+    }
+    refreshScales();
+  }
+  function pickAt(cx, cy) {
+    let best = null, bestD = 22;
+    for (const n of nodes) {
+      if (n._facing === undefined || n._facing < 0.05) continue;
+      const d = Math.hypot(n._sx - cx, n._sy - cy);
+      if (d < bestD) { bestD = d; best = n; }
+    }
+    return best;
+  }
+  /* Solve yaw and pitch so node n faces the camera, tilt group included.
+     Candidates are scored against the real three.js transform, so the
+     pick cannot drift from the render. */
+  function solveYawPitch(n) {
+    const d = n._v.clone().normalize();
+    const center = globe.getWorldPosition(new THREE.Vector3());
+    const tHat = camera.position.clone().sub(center).normalize();
+    const u = tHat.applyQuaternion(tilt.quaternion.clone().invert());
+    const rho = Math.hypot(d.y, d.z);
+    if (rho < 1e-6) return null;
+    const gamma = Math.atan2(d.z, d.y);
+    const base = Math.acos(Math.max(-1, Math.min(1, u.y / rho)));
+    const test = new THREE.Object3D();
+    test.rotation.order = 'YXZ';
+    let bestFit = null;
+    for (const p of [-gamma + base, -gamma - base]) {
+      if (p < PITCH_MIN - 0.45 || p > PITCH_MAX + 0.45) continue;
+      const dp = d.clone().applyEuler(new THREE.Euler(p, 0, 0));
+      const yGuess = Math.atan2(dp.x, dp.z) - Math.atan2(u.x, u.z);
+      for (const y of [yGuess, -yGuess]) {
+        test.rotation.set(p, y, 0);
+        const err = d.clone().applyQuaternion(test.quaternion).distanceTo(u);
+        if (!bestFit || err < bestFit.err) bestFit = { pitch: p, yaw: y, err };
+      }
+    }
+    return bestFit;
+  }
+  function flyTo(n, instant) {
+    const sol = solveYawPitch(n);
+    if (!sol) { openCard(n); return; }
+    let targetYaw = sol.yaw;
+    while (targetYaw - yaw > Math.PI) targetYaw -= Math.PI * 2;
+    while (targetYaw - yaw < -Math.PI) targetYaw += Math.PI * 2;
+    const targetPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, sol.pitch));
+    if (instant) {
+      yaw = targetYaw;
+      pitch = targetPitch;
+      mode = 'auto';
+      lastInteract = performance.now() / 1000;
+      openCard(n);
+      return;
+    }
+    flight = { fromYaw: yaw, toYaw: targetYaw, fromPitch: pitch, toPitch: targetPitch,
+               start: performance.now() / 1000, dur: 1.15, node: n };
+    mode = 'flight';
+    yawVel = 0;
+    pitchVel = 0;
+  }
+  estateAPI = {
+    flyTo: n => flyTo(n, false),
+    select: n => showSelection(n)
+  };
+
+  let drag = null;
+  canvas.addEventListener('pointerdown', e => {
+    flight = null;
+    if (mode === 'flight') mode = 'auto';
+    drag = { lx: e.clientX, ly: e.clientY, t: performance.now(), moved: 0 };
+    yawVel = 0;
+    pitchVel = 0;
+    mode = 'drag';
+    canvas.classList.add('grabbing');
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* older engines */ }
+    tip.style.display = 'none';
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (drag) {
+      const dx = e.clientX - drag.lx, dy = e.clientY - drag.ly;
+      drag.lx = e.clientX;
+      drag.ly = e.clientY;
+      drag.moved += Math.abs(dx) + Math.abs(dy);
+      if (drag.moved > 2) {
+        const now = performance.now();
+        const dt = Math.max((now - drag.t) / 1000, 0.008);
+        drag.t = now;
+        yawVel = yawVel * 0.65 + (dx * 0.0052 / dt) * 0.35;
+        pitchVel = pitchVel * 0.65 + (dy * 0.0052 / dt) * 0.35;
+        yaw += dx * 0.0052;
+        pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch + dy * 0.0052));
+        lastInteract = now / 1000;
+      }
+      return;
+    }
+    if (e.pointerType === 'mouse') {
+      const n = pickAt(e.clientX, e.clientY);
+      if (n !== hoverNode) {
+        hoverNode = n;
+        refreshScales();
+      }
+      canvas.classList.toggle('pick', !!n);
+      if (n) {
+        tip.textContent = n.board;
+        tip.style.color = n.color;
+        tip.style.left = (e.clientX + 16) + 'px';
+        tip.style.top = (e.clientY + 14) + 'px';
+        tip.style.display = 'block';
+      } else {
+        tip.style.display = 'none';
+      }
+    }
+  });
+  function endDrag(e) {
+    if (!drag) return;
+    const wasClick = drag.moved <= 6;
+    drag = null;
+    canvas.classList.remove('grabbing');
+    lastInteract = performance.now() / 1000;
+    if (wasClick) {
+      const n = pickAt(e.clientX, e.clientY);
+      if (n) openCard(n); else closeCard();
+      mode = 'auto';
+      yawVel = 0;
+      pitchVel = 0;
+    } else {
+      mode = 'inertia';
+    }
+  }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', () => {
+    drag = null;
+    mode = 'inertia';
+    canvas.classList.remove('grabbing');
+  });
+  canvas.addEventListener('pointerleave', () => {
+    hoverNode = null;
+    refreshScales();
+    tip.style.display = 'none';
+    canvas.classList.remove('pick');
+  });
+
   function resize() {
     renderer.setSize(innerWidth, innerHeight);
     camera.aspect = innerWidth / innerHeight;
@@ -295,7 +569,33 @@ function init(THREE) {
   function tick() {
     requestAnimationFrame(tick);
     const t = performance.now() / 1000;
-    globe.rotation.y = t * 0.02;
+    const dt = Math.min(t - (tick._pt === undefined ? t : tick._pt), 0.05);
+    tick._pt = t;
+    if (mode === 'flight' && flight) {
+      const u = Math.min((t - flight.start) / flight.dur, 1);
+      const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+      yaw = flight.fromYaw + (flight.toYaw - flight.fromYaw) * e;
+      pitch = flight.fromPitch + (flight.toPitch - flight.fromPitch) * e;
+      if (u >= 1) {
+        const fn = flight.node;
+        flight = null;
+        mode = 'auto';
+        lastInteract = t;
+        openCard(fn);
+      }
+    } else if (mode === 'inertia') {
+      yaw += yawVel * dt;
+      pitch += pitchVel * dt;
+      if (pitch > PITCH_MAX) { pitch = PITCH_MAX; pitchVel = 0; }
+      if (pitch < PITCH_MIN) { pitch = PITCH_MIN; pitchVel = 0; }
+      const decay = Math.exp(-2.4 * dt);
+      yawVel *= decay;
+      pitchVel *= decay;
+      if (Math.hypot(yawVel, pitchVel) < 0.004) { mode = 'auto'; lastInteract = t; }
+    } else if (mode === 'auto') {
+      if (t - lastInteract > 3) yaw += AUTO_SPEED * dt;
+    }
+    globe.rotation.set(pitch, yaw, 0);
     const arr = pulseGeo.attributes.position.array;
     arcs.forEach((a, i) => {
       for (let k = 0; k < 2; k++) {
@@ -312,9 +612,12 @@ function init(THREE) {
     for (const n of nodes) {
       wPos.copy(n._v).applyMatrix4(globe.matrixWorld);
       const facing = wPos.clone().sub(gCenter).normalize().dot(camDir.clone().negate());
-      if (facing < 0.30) { n._lbl.style.display = 'none'; continue; }
+      n._facing = facing;
       proj.copy(wPos).project(camera);
+      n._sx = (proj.x * 0.5 + 0.5) * innerWidth;
       const y = (-proj.y * 0.5 + 0.5) * innerHeight;
+      n._sy = y;
+      if (facing < 0.30) { n._lbl.style.display = 'none'; continue; }
       if (y < 8 || y > innerHeight - 64) { n._lbl.style.display = 'none'; continue; }
       n._lbl.style.display = 'block';
       n._lbl.style.left = (proj.x * 0.5 + 0.5) * innerWidth + 'px';
@@ -331,6 +634,15 @@ function init(THREE) {
     }
   }
   tick();
+
+  /* deep link: ?open=<host or label> snaps to the site and opens its card */
+  const want = new URLSearchParams(location.search).get('open');
+  if (want) {
+    const w = want.toLowerCase();
+    const n = nodes.find(x => x.host.toLowerCase() === w ||
+      x.label.toLowerCase() === w || x.board.toLowerCase() === w);
+    if (n) flyTo(n, true);
+  }
 }
 </script>
 </body>
