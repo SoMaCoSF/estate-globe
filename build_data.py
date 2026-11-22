@@ -101,6 +101,12 @@ DOSSIERS = {
  "estate.somacosf.com": dict(
    what="The front door of the Somaco estate: the page hierarchy root from which every other surface hangs.",
    why="Built so the estate has one address a visitor can start from, and one root the registry can parent everything to."),
+ "cayman.somacosf.com": dict(
+   what="Cayman: the parody coin site. CaymanCoinCaribbeanCrypto, 'the cleanest coin available', where wallets are shells and the fine print states the parody.",
+   why="Built as the estate's satire surface, and as the hub of the globe's SHELLS layer: the shell jurisdiction, read from George Town."),
+ "sidc.somacosf.com": dict(
+   what="SIDC: the orbital data center census, the datacenter story read from above the dirt.",
+   why="Built so the supply chain's next terrain, orbit, has an addressed surface of its own, and as the hub of the globe's SPACE layer."),
  "geohex.somacosf.com": dict(
    what="GeoHex: spatial identity. A hexagonal cell system that gives places an address of their own.",
    why="Built so location itself can carry identity, and anything at a place can be reached by address rather than found by search."),

@@ -85,6 +85,58 @@ window.ESTATE_LAYERS = [
  {
   "entryPoints": [
    {
+    "host": "cayman.somacosf.com",
+    "kind": "host",
+    "label": "Cayman, the shell jurisdiction"
+   }
+  ],
+  "flow": {
+   "mesh": null,
+   "type": "hub"
+  },
+  "gloss": "The Cayman construct: coinage spirals into shells, the Yacht, Art and Wine protectorates, seated at George Town, Grand Cayman.",
+  "hubLabel": "SAN FRANCISCO HUB \u00b7 SPIRAL IN",
+  "id": "shells",
+  "leaderboard": {
+   "scope": "layer"
+  },
+  "name": "SHELLS",
+  "population": {
+   "hosts": [
+    "cayman.somacosf.com"
+   ],
+   "type": "hostList"
+  }
+ },
+ {
+  "entryPoints": [
+   {
+    "host": "sidc.somacosf.com",
+    "kind": "host",
+    "label": "SIDC, orbital data centers"
+   }
+  ],
+  "flow": {
+   "mesh": null,
+   "type": "hub"
+  },
+  "gloss": "The SIDC layer: the orbital data center census, read from above.",
+  "hubLabel": "SAN FRANCISCO HUB \u00b7 GROUND STATION",
+  "id": "space",
+  "leaderboard": {
+   "scope": "layer"
+  },
+  "name": "SPACE",
+  "population": {
+   "hosts": [
+    "sidc.somacosf.com"
+   ],
+   "type": "hostList"
+  }
+ },
+ {
+  "entryPoints": [
+   {
     "kind": "hub",
     "label": "San Francisco hub"
    },
